@@ -7,6 +7,26 @@ from tqdm import tqdm
 from utils.datacls import DataWithFeaturesEntryclass
 
 
+def create_feature_sample(
+    wav_file,
+    hop_length_coef: float = 0.01,
+    win_length_coef: float = 0.02,
+    sample_rate: int = 16000,
+    n_mels: int = 64,
+):
+    hop_length = int(sample_rate * hop_length_coef)
+    win_length = int(sample_rate * win_length_coef)
+    data, rate = librosa.load(wav_file, sr=sample_rate)
+    spec = librosa.feature.melspectrogram(
+        y=data,
+        sr=rate,
+        hop_length=hop_length,
+        n_fft=win_length,
+        n_mels=n_mels,
+    )
+    return librosa.power_to_db(spec, ref=np.max)
+
+
 def create_features(
     data: List[DataWithFeaturesEntryclass],
     wavs_names: Set[str],
@@ -28,18 +48,7 @@ def create_features(
         hop_length = int(sample_rate * hop_length_coef)
         win_length = int(sample_rate * win_length_coef)
         for row in tqdm(data):
-            data, rate = librosa.load(row.wav_path, sr=sample_rate)
-            if len(data) != 0:
-                spec = librosa.feature.melspectrogram(
-                    y=data,
-                    sr=rate,
-                    hop_length=hop_length,
-                    n_fft=win_length,
-                    n_mels=n_mels,
-                )
-            else:
-                raise AttributeError
-            mel_spec = librosa.power_to_db(spec, ref=np.max)
+            mel_spec = create_feature_sample(row.wav_path, hop_length_coef=hop_length_coef, win_length_coef=win_length_coef, sample_rate=sample_rate, n_mels=n_mels)
             np.save(features_dump_path / f"{row.wav_id}.npy", mel_spec[None])
         # print(f"({len(data)}/{len(wavs_names)}) features have been calculated for {dataset_name}")
     else:
